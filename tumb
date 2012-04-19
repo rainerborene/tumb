@@ -1,0 +1,176 @@
+#!/usr/bin/env ruby
+begin
+  require 'yaml/store'
+  require 'digest/md5'
+  require 'logger'
+  require 'mechanize'
+  require 'json'
+rescue LoadError => ex
+  puts "\e[31m#{ex}"
+  exit
+end
+
+VERSION = "0.1.0"
+
+#
+# Mechanize object
+#
+
+Tumb = Mechanize.new do |config|
+  config.log = Logger.new("/tmp/mechanize.log")
+  config.user_agent_alias = "Mac Safari"
+end
+
+#
+# Additional methods
+#
+
+Tumb.instance_eval do
+
+  def login
+    get("https://www.tumblr.com/login")
+    login_form = page.form_with(:action => "/svc/account/register")
+    login_form.field_with(:name => "user[email]").value = @username
+    login_form.field_with(:name => "user[password]").value = @password
+    login_form['action'] = "signup_login"
+    submit(login_form)
+  end
+
+  def deploy
+    get("http://www.tumblr.com/customize/#{@blog}")
+
+    data = JSON.parse page.body.match(/set\((\{.*\})\);/)[1]
+    data["user_form_key"] = page.body.match(/user_form_key \= '([^']+)'/)[1]
+    data["custom_theme"] = File.open("tmp/index.html", "r").read
+    data = JSON.dump(data)
+
+    post("http://www.tumblr.com/customize_api/blog/#{@blog}", data, {
+      "X-Requested-With" => "XMLHttpRequest",
+      "Content-Type"     => "application/json",
+      "Connection"       => "keep-alive"
+    })
+
+    puts "Theme deployed sucessfully!"
+  end
+
+  def send(file)
+    pattern = /\/([^\/]+)$/
+    filename = file.match(pattern)[1]
+    puts "Sending #{filename}"
+
+    get("http://www.tumblr.com/themes/upload_static_file")
+    upload_form = page.forms.first
+    upload_form.file_upload_with(:name => "file").file_name = file
+    submit(upload_form)
+
+    page.search("input[type=text]").last["value"]
+  end
+
+  def compare_and_upload(filename)
+    metadata = YAML::Store.new ".metadata"
+    target = File.new(filename)
+    remote_url = nil
+
+    checksum = Digest::MD5.file(target).hexdigest
+
+    metadata.transaction do
+      outdated = true
+
+      if metadata[filename].instance_of? Hash
+        outdated = metadata[filename]["checksum"] != checksum
+      end
+
+      if outdated
+        metadata[filename] = {
+          "remote_url" => send(target.path),
+          "checksum"  => checksum
+        }
+      end
+
+      remote_url = metadata[filename]["remote_url"]
+    end
+
+    remote_url
+  end
+
+  def setup
+    pattern = /[^\/]+$/
+    stylesheets = []
+    javascripts = []
+
+    # Grab javascripts and stylesheets urls from theme
+    body = File.open("index.html").read
+    theme = Nokogiri::HTML(body)
+    theme.css("link[rel='stylesheet'], script[src]").each do |node|
+      if node.node_name.eql? "script"
+        javascripts.push node
+      else
+        stylesheets.push node
+      end
+    end
+
+    stylesheets.each do |style|
+      if File.exists? style[:href]
+        stylesheet = File.open(style[:href]).read
+        stylesheet.scan(/url\(['"]([^'"]+)['"]\)/) do |match|
+          image = match.last.gsub(/^\//, "").gsub(/\?\d+/, "").match(pattern)[0]
+          image_path = Dir["*/#{image}"].first
+          new_url = compare_and_upload(image_path)
+          stylesheet = stylesheet.gsub(match.first, new_url)
+        end
+
+        # Save modified stylesheet
+        filename = style[:href].match(pattern)[0]
+        File.open("tmp/#{filename}", "w+") do |f|
+          f.write stylesheet
+        end
+
+        # Upload stylesheet
+        new_url = compare_and_upload("tmp/#{filename}") 
+        body = body.gsub(style[:href], new_url)
+      end
+    end
+
+    # Upload javascripts
+    javascripts.each do |js|
+      if File.exists? js[:src]
+        js_name = js[:src].match(pattern)[0]
+        new_url = compare_and_upload("javascripts/#{js_name}")
+        body = body.gsub(js[:src], new_url)
+      end
+    end
+
+    # Change template
+    File.open("tmp/index.html", "w+") do |f|
+      f.write(body)
+    end
+    
+    # Deploy
+    deploy
+  end
+
+  def run!
+    @username, @password, @blog = ARGV
+    login && setup
+  end
+
+end
+
+#
+# Usage information
+#
+
+unless ARGV.count.eql? 3
+  puts "Usage: tumb [username] [password] [blog]" 
+  exit
+end
+
+#
+# Deploy
+#
+
+begin
+  Tumb.run!
+rescue Exception => ex
+  puts "\e[31m#{ex}"
+end

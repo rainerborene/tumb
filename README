@@ -1,0 +1,38 @@
+tumb(1)                          User Commands                         tumb(1)
+
+
+
+NAME
+       tumb - tumblr theme deployer
+
+SYNOPSIS
+       tumb username password blog
+
+DESCRIPTION
+       tumb  is  a ruby program that automates the process of deploying themes
+       to Tumblr.
+
+CONFIGURATION
+       The tumb command requires the following dependencies to be installed on
+       your machine.
+
+   o   ruby 1.9.2 or above
+
+   o   mechanize gem
+
+       To install mechanize, you can use the gem command.
+
+       gem install mechanize
+
+AUTHOR
+       Written by Rainer Borene.
+
+REPORTING BUGS
+       Report bugs to <https://github.com/rainerborene/tumb/issues/>
+
+SEE ALSO
+       ruby(1), gem(1)
+
+
+
+Version 0.1                       April 2012                           tumb(1)
