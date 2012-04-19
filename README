@@ -28,7 +28,7 @@ AUTHOR
        Written by Rainer Borene.
 
 REPORTING BUGS
-       Report bugs to <https://github.com/rainerborene/tumb/issues/>
+       Please file bugs at https://github.com/rainerborene/tumb/issues/
 
 SEE ALSO
        ruby(1), gem(1)
