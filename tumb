@@ -58,8 +58,8 @@ Tumb.instance_eval do
     filename = file.match(pattern)[1]
     puts "Sending #{filename}"
 
-    get("http://www.tumblr.com/themes/upload_static_file")
-    upload_form = page.forms.first
+    get("https://www.tumblr.com/themes/upload_static_file")
+    upload_form = page.forms.last
     upload_form.file_upload_with(:name => "file").file_name = file
     submit(upload_form)
 
