@@ -10,14 +10,16 @@ rescue LoadError => ex
   exit
 end
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 #
 # Mechanize object
 #
 
 Tumb = Mechanize.new do |config|
-  config.log = Logger.new("/tmp/mechanize.log")
+  config.log = Logger.new(STDOUT)
+  config.log.level = Logger::INFO
+  config.log.datetime_format = "%Y-%m-%d %H:%M:%S"
   config.user_agent_alias = "Mac Safari"
 end
 
@@ -29,7 +31,7 @@ Tumb.instance_eval do
 
   def login
     get("https://www.tumblr.com/login")
-    login_form = page.form_with(:action => "/svc/account/register")
+    login_form = page.form_with(:id => "signup_form")
     login_form.field_with(:name => "user[email]").value = @username
     login_form.field_with(:name => "user[password]").value = @password
     login_form['action'] = "signup_login"
@@ -41,8 +43,12 @@ Tumb.instance_eval do
 
     data = JSON.parse page.body.match(/set\((\{.*\})\);/)[1]
     data["user_form_key"] = page.body.match(/user_form_key \= '([^']+)'/)[1]
+    data["user_form_key"] = page.body.match(/user_form_key = '(.*)'/)[1]
+    data["secure_form_key"] = page.body.match(/secure_form_key = '(.*)'/)[1]
     data["custom_theme"] = File.open("tmp/index.html", "r").read
     data = JSON.dump(data)
+
+    puts data.inspect
 
     post("http://www.tumblr.com/customize_api/blog/#{@blog}", data, {
       "X-Requested-With" => "XMLHttpRequest",
@@ -126,7 +132,7 @@ Tumb.instance_eval do
         end
 
         # Upload stylesheet
-        new_url = compare_and_upload("tmp/#{filename}") 
+        new_url = compare_and_upload("tmp/#{filename}")
         body = body.gsub(style[:href], new_url)
       end
     end
@@ -144,7 +150,7 @@ Tumb.instance_eval do
     File.open("tmp/index.html", "w+") do |f|
       f.write(body)
     end
-    
+
     # Deploy
     deploy
   end
@@ -161,7 +167,7 @@ end
 #
 
 unless ARGV.count.eql? 3
-  puts "Usage: tumb [username] [password] [blog]" 
+  puts "Usage: tumb [username] [password] [blog]"
   exit
 end
 
