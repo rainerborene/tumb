@@ -17,10 +17,12 @@ VERSION = "0.2.0"
 #
 
 Tumb = Mechanize.new do |config|
+  config.user_agent_alias = "Mac Safari"
   config.log = Logger.new(STDOUT)
   config.log.level = Logger::INFO
-  config.log.datetime_format = "%Y-%m-%d %H:%M:%S"
-  config.user_agent_alias = "Mac Safari"
+  config.log.formatter = proc do |severity, datetime, progname, msg|
+    "#{datetime.strftime "%Y-%m-%d %H:%M:%S"}: #{msg}\n"
+  end
 end
 
 #
@@ -48,21 +50,19 @@ Tumb.instance_eval do
     data["custom_theme"] = File.open("tmp/index.html", "r").read
     data = JSON.dump(data)
 
-    puts data.inspect
-
     post("http://www.tumblr.com/customize_api/blog/#{@blog}", data, {
       "X-Requested-With" => "XMLHttpRequest",
       "Content-Type"     => "application/json",
       "Connection"       => "keep-alive"
     })
 
-    puts "Theme deployed sucessfully!"
+    log.info("--> Theme deployed")
   end
 
   def send(file)
     pattern = /\/([^\/]+)$/
     filename = file.match(pattern)[1]
-    puts "Sending #{filename}"
+    log.info("--> Sending #{filename}")
 
     get("https://www.tumblr.com/themes/upload_static_file")
     upload_form = page.forms.last
@@ -150,14 +150,11 @@ Tumb.instance_eval do
     File.open("tmp/index.html", "w+") do |f|
       f.write(body)
     end
-
-    # Deploy
-    deploy
   end
 
   def run!
     @username, @password, @blog = ARGV
-    login && setup
+    login && setup && deploy
   end
 
 end
