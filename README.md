@@ -4,13 +4,15 @@
 
 ## Installation
 
-    $ curl https://raw.github.com/thoughtplane/tumb/master/tumb -o /usr/local/bin/tumb
+1. Copy the `tumb` to your computer somehow.
+2. Make it executable.
+3. Get it into your path somehow.
 
 ## Usage
 
     $ tumb [username] [password] [blog]
 
-Read the [source code](https://github.com/thoughtplane/tumb/blob/master/tumb) for more information.
+Read the [source code](https://github.com/thoughtplane/tumb/blob/master/tumb) to understand how it works.
 
 ## Contributing
 
